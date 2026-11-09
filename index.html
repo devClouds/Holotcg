@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Holo</title>
+<meta name="description" content="Escanea tus cartas de Pokémon TCG, consulta su precio en Cardmarket y lleva tu colección.">
+<meta name="theme-color" content="#E8EBF0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0D1220" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Holo">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="preconnect" href="https://api.tcgdex.net" crossorigin>
+<link rel="preconnect" href="https://assets.tcgdex.net">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <p class="brand">Holo</p>
+  <p class="top-status" id="top-status" aria-live="polite"></p>
+</header>
+
+<main id="main">
+
+  <!-- Colección -->
+  <section class="view" id="view-collection" aria-labelledby="h-col">
+    <h1 id="h-col" class="visually-hidden">Tu colección</h1>
+    <div class="slab" id="slab">
+      <div class="slab-label">
+        <div>
+          <p class="slab-kicker">Valor de tu colección</p>
+          <p class="slab-value" id="total-value">0,00 €</p>
+          <p class="slab-sub" id="total-sub"></p>
+        </div>
+        <div class="holo-seal" aria-hidden="true">
+          <span class="seal-n" id="seal-count">0</span>
+          <span class="seal-l">distintas</span>
+        </div>
+      </div>
+      <div class="slab-window">
+        <div class="chart" id="chart"></div>
+        <p class="slab-pl" id="slab-pl" hidden></p>
+        <div class="slab-foot">
+          <p class="delta" id="delta"></p>
+          <button class="btn btn-quiet" id="btn-refresh" type="button">Actualizar precios</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toolbar" id="col-toolbar">
+      <label class="search">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>
+        <input type="search" id="col-search" placeholder="Buscar en tu colección" aria-label="Buscar en tu colección" autocomplete="off">
+      </label>
+      <select class="select" id="col-sort" aria-label="Ordenar">
+        <option value="value">Más valiosas</option>
+        <option value="recent">Recientes</option>
+        <option value="name">Nombre</option>
+        <option value="set">Set y número</option>
+        <option value="gain">Más revalorizadas</option>
+      </select>
+    </div>
+
+    <div class="grid" id="col-grid"></div>
+    <div class="empty" id="col-empty" hidden>
+      <p>Tu colección está vacía. Escanea tu primera carta o búscala por su nombre.</p>
+      <div class="row-btns">
+        <button class="btn btn-primary" type="button" data-go="scan">Escanear una carta</button>
+        <button class="btn" type="button" data-go="manual">Buscar por nombre</button>
+      </div>
+    </div>
+    <p class="help" id="col-noresults" hidden>Ninguna carta de tu colección coincide con esa búsqueda.</p>
+  </section>
+
+  <!-- Sets -->
+  <section class="view" id="view-sets" hidden aria-labelledby="h-sets">
+    <div id="sets-home">
+      <h1 class="h2" id="h-sets">Tus sets</h1>
+      <div class="set-list" id="my-sets"></div>
+      <p class="empty" id="sets-empty" hidden>Cuando añadas cartas verás aquí cuánto te falta para completar cada set.</p>
+      <h2 class="h2">Explorar sets</h2>
+      <label class="search" style="margin-bottom:12px">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>
+        <input type="search" id="set-search" placeholder="Busca un set por nombre" aria-label="Buscar un set" autocomplete="off">
+      </label>
+      <div class="set-list" id="all-sets"></div>
+    </div>
+    <div id="set-detail" hidden></div>
+  </section>
+
+  <!-- Escanear -->
+  <section class="view view-scan" id="view-scan" hidden aria-label="Escanear">
+    <div class="scan-live" id="scan-live">
+      <div class="cam" id="cam">
+        <video id="video" playsinline muted autoplay></video>
+        <div class="cam-frame" id="cam-frame" aria-hidden="true"></div>
+        <p class="cam-hint">Encaja la carta en el marco y pulsa el botón</p>
+        <div class="cam-error" id="cam-error" hidden>
+          <p id="cam-error-text"></p>
+          <div class="row-btns" style="justify-content:center">
+            <button class="btn" type="button" id="btn-cam-retry">Reintentar</button>
+          </div>
+        </div>
+      </div>
+      <div class="cam-controls">
+        <label class="btn" for="file-input">Subir foto</label>
+        <button class="shutter" id="btn-shutter" type="button" aria-label="Fotografiar la carta"></button>
+        <button class="btn" id="btn-torch" type="button" aria-pressed="false" hidden>Linterna</button>
+      </div>
+      <input type="file" id="file-input" accept="image/*" hidden>
+      <div class="scan-foot">
+        <p id="scan-mode"></p>
+        <button class="btn btn-quiet" id="btn-manual" type="button">Buscar a mano</button>
+      </div>
+    </div>
+
+    <div class="scan-result" id="scan-result" hidden>
+      <div class="scan-head">
+        <img id="scan-thumb" alt="Tu foto" hidden>
+        <p class="scan-status" id="scan-status" aria-live="polite"></p>
+      </div>
+      <form class="scan-form" id="scan-form" autocomplete="off">
+        <label class="field">Nombre de la carta
+          <input id="q-name" type="text" placeholder="Por ejemplo, Charizard ex" enterkeyhint="search">
+        </label>
+        <div class="num-row">
+          <label class="field">Número
+            <input id="q-num" type="text" placeholder="025" enterkeyhint="search">
+          </label>
+          <span class="slash" aria-hidden="true">/</span>
+          <label class="field">Total del set
+            <input id="q-total" type="text" inputmode="numeric" placeholder="198" enterkeyhint="search">
+          </label>
+        </div>
+        <button class="btn btn-primary" type="submit">Buscar carta</button>
+      </form>
+      <div class="cand-head">
+        <h2 class="h3" id="cand-title" hidden></h2>
+      </div>
+      <p class="help" id="cand-msg" hidden></p>
+      <div class="grid" id="cand-grid"></div>
+      <div class="scan-again">
+        <button class="btn" id="btn-again" type="button">Escanear otra carta</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Deseos -->
+  <section class="view" id="view-wish" hidden aria-labelledby="h-wish">
+    <h1 class="h2" id="h-wish">Deseos</h1>
+    <p class="lead" id="wish-lead">Las cartas que buscas, con su precio de hoy. Marca un precio objetivo y verás cuáles están por debajo.</p>
+    <div id="wish-list"></div>
+    <div class="empty" id="wish-empty" hidden>
+      <p>No tienes cartas en tu lista. Abre cualquier carta y pulsa «Añadir a deseos».</p>
+      <div class="row-btns"><button class="btn" type="button" data-go="manual">Buscar una carta</button></div>
+    </div>
+  </section>
+
+  <!-- Ajustes -->
+  <section class="view" id="view-settings" hidden aria-labelledby="h-settings">
+    <h1 class="h2" id="h-settings">Ajustes</h1>
+
+    <div class="panel">
+      <h2 class="h3">Reconocimiento de cartas</h2>
+      <p class="help">Sin clave, Holo lee el número de la carta con un lector de texto gratuito que funciona en tu móvil. Con una clave de API de Anthropic, Claude reconoce la carta a partir de la foto con mucha más precisión. La clave se guarda solo en este dispositivo y no va en las copias de seguridad.</p>
+      <label class="field">Clave de API de Anthropic
+        <input type="password" id="set-key" autocomplete="off" spellcheck="false" placeholder="sk-ant-...">
+      </label>
+      <p class="key-state" id="key-state" hidden>Clave guardada. Las fotos se envían a Claude para reconocerlas.</p>
+      <label class="field">Modelo
+        <select id="set-model"></select>
+      </label>
+      <div class="row-btns">
+        <button class="btn btn-primary" type="button" id="btn-key-save">Guardar clave</button>
+        <button class="btn btn-danger-quiet" type="button" id="btn-key-clear">Borrar clave</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2 class="h3">Precios</h2>
+      <label class="field">Precio de referencia
+        <select id="set-metric"></select>
+      </label>
+      <label class="field">Idioma habitual de tus cartas
+        <select id="set-lang"></select>
+      </label>
+      <p class="help">Los precios salen de la guía de precios de Cardmarket a través de TCGdex y se actualizan una vez al día. Son precios de cartas sin gradear: para una carta gradeada, pon un valor manual en su ficha.</p>
+    </div>
+
+    <div class="panel">
+      <h2 class="h3">Copia de seguridad</h2>
+      <p class="help">Tu colección se guarda solo en este móvil. Exporta una copia de vez en cuando y guárdala en tu nube.</p>
+      <div class="row-btns">
+        <button class="btn" type="button" id="btn-export">Exportar copia</button>
+        <label class="btn" for="import-file">Importar copia</label>
+        <button class="btn" type="button" id="btn-csv">Exportar CSV</button>
+      </div>
+      <input type="file" id="import-file" accept="application/json,.json" hidden>
+    </div>
+
+    <div class="panel">
+      <h2 class="h3">Borrar datos</h2>
+      <p class="help">Elimina todas las cartas, deseos e historial de este móvil.</p>
+      <div class="row-btns"><button class="btn btn-danger" type="button" id="btn-wipe">Borrar toda la colección</button></div>
+    </div>
+
+    <p class="credits">Datos e imágenes de las cartas: TCGdex. Precios: Cardmarket, a través de TCGdex. Holo es una herramienta personal y no está afiliada a The Pokémon Company, Nintendo ni Cardmarket.</p>
+  </section>
+</main>
+
+<nav class="tabbar" aria-label="Secciones">
+  <div class="tabbar-inner">
+    <button class="tab" type="button" data-view="collection" aria-current="page">
+      <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="7.5" y="3.5" width="11" height="15" rx="1.8"/><path d="M4.5 7.5v10.7c0 1 .8 1.8 1.8 1.8h8.7"/></svg>
+      Colección
+    </button>
+    <button class="tab" type="button" data-view="sets">
+      <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>
+      Sets
+    </button>
+    <button class="tab tab-scan" type="button" data-view="scan">
+      <span class="scan-dot"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><rect x="8.5" y="7" width="7" height="10" rx="1"/></svg></span>
+      Escanear
+    </button>
+    <button class="tab" type="button" data-view="wish">
+      <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.8l2.5 5.1 5.6.8-4 3.9.9 5.6-5-2.6-5 2.6.9-5.6-4-3.9 5.6-.8z"/></svg>
+      Deseos
+    </button>
+    <button class="tab" type="button" data-view="settings">
+      <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+      Ajustes
+    </button>
+  </div>
+</nav>
+
+<dialog class="sheet" id="sheet" aria-label="Ficha de la carta">
+  <div class="sheet-inner" id="sheet-body"></div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite" popover="manual"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
